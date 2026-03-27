@@ -1,0 +1,96 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TUTOR
+  ADMIN
+}
+
+enum BookingStatus {
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      String   @default("STUDENT")
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tutorProfile     TutorProfile?
+  bookingsAsStudent Booking[]     @relation("StudentBookings")
+  bookingsAsTutor   Booking[]     @relation("TutorBookings")
+  reviewsGiven     Review[]
+}
+
+model TutorProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio         String?
+  price       Float?
+  rating      Float    @default(0)
+  reviewCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  categories    Category[]
+  availabilities Availability[]
+}
+
+model Availability {
+  id       String @id @default(cuid())
+  tutorId  String
+  tutor    TutorProfile @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  day      String
+  startTime String
+  endTime   String
+
+  @@unique([tutorId, day])
+}
+
+model Category {
+  id     String @id @default(cuid())
+  name   String @unique
+  tutors TutorProfile[]
+}
+
+model Booking {
+  id        String   @id @default(cuid())
+  studentId String
+  student   User     @relation("StudentBookings", fields: [studentId], references: [id])
+  tutorId   String
+  tutor     User     @relation("TutorBookings", fields: [tutorId], references: [id])
+  date      DateTime
+  status    String   @default("CONFIRMED")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  review Review?
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  bookingId String   @unique
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+}
