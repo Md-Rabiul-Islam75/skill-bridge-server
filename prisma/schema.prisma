@@ -78,7 +78,7 @@ model Booking {
   tutorId   String
   tutor     User     @relation("TutorBookings", fields: [tutorId], references: [id])
   date      DateTime
-  status    String   @default("CONFIRMED")
+  status    BookingStatus @default(CONFIRMED)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -90,6 +90,8 @@ model Review {
   id        String   @id @default(cuid())
   bookingId String   @unique
   booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  reviewerId String
+  reviewer  User     @relation(fields: [reviewerId], references: [id])
   rating    Int
   comment   String?
   createdAt DateTime @default(now())
