@@ -3,12 +3,11 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { auth } from './auth.ts';
-import tutorRoutes from './routes/tutors.ts';
-import tutorPrivateRoutes from './routes/tutor.ts';
-import bookingRoutes from './routes/bookings.ts';
-import reviewRoutes from './routes/reviews.ts';
-import adminRoutes from './routes/admin.ts';
+import tutorRoutes from './routes/tutors.js';
+import tutorPrivateRoutes from './routes/tutor.js';
+import bookingRoutes from './routes/bookings.js';
+import reviewRoutes from './routes/reviews.js';
+import adminRoutes from './routes/admin.js';
 
 dotenv.config();
 
@@ -68,7 +67,39 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-app.use('/api/auth', auth.handler); // Fixed routing
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error('Auth login error:', error instanceof Error ? error.message : String(error));
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
 app.use('/api/tutors', tutorRoutes);
 app.use('/api/tutor', tutorPrivateRoutes);
 app.use('/api/bookings', bookingRoutes);
