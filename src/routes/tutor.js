@@ -48,6 +48,27 @@ router.put('/profile', async (req, res) => {
         res.status(500).json({ error: 'Failed to update profile' });
     }
 });
+// GET /api/tutor/availability - Get current tutor availability
+router.get('/availability', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        if (!userId) {
+            return res.status(400).json({ error: 'userId query parameter is required' });
+        }
+        const tutorProfile = await prisma.tutorProfile.findUnique({
+            where: { userId: userId },
+            include: { availabilities: true },
+        });
+        if (!tutorProfile) {
+            return res.status(404).json({ error: 'Tutor profile not found. Please create a profile first.' });
+        }
+        res.json({ availability: tutorProfile.availabilities });
+    }
+    catch (error) {
+        console.error('Fetch availability error:', error instanceof Error ? error.message : String(error));
+        res.status(500).json({ error: 'Failed to fetch availability' });
+    }
+});
 // PUT /api/tutor/availability - Update availability
 router.put('/availability', async (req, res) => {
     try {
@@ -82,14 +103,14 @@ router.put('/availability', async (req, res) => {
             where: { tutorId: tutorProfile.id },
         });
         // Create new availability
-        const newAvailabilities = await prisma.availability.createMany({
+        await prisma.availability.createMany({
             data: validatedAvailabilities,
         });
         // Return updated availability
         const updatedAvailabilities = await prisma.availability.findMany({
             where: { tutorId: tutorProfile.id },
         });
-        res.json(updatedAvailabilities);
+        res.json({ availability: updatedAvailabilities });
     }
     catch (error) {
         console.error('Update availability error:', error instanceof Error ? error.message : String(error));

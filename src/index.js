@@ -13,15 +13,31 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5000;
 // Middleware
+const allowedOrigins = [
+    'http://localhost:3000',
+    process.env.CLIENT_URL,
+    process.env.FRONTEND_URL,
+].filter(Boolean);
 const corsOptions = {
-    origin: 'http://localhost:3000',
+    origin: (origin, callback) => {
+        if (!origin)
+            return callback(null, true);
+        if (allowedOrigins.includes(origin))
+            return callback(null, true);
+        if (origin.endsWith('.vercel.app'))
+            return callback(null, true);
+        return callback(new Error('CORS not allowed'));
+    },
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 };
 app.use(cors(corsOptions));
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+    const reqOrigin = req.headers.origin;
+    if (reqOrigin && (allowedOrigins.includes(reqOrigin) || reqOrigin.endsWith('.vercel.app'))) {
+        res.header('Access-Control-Allow-Origin', reqOrigin);
+    }
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
@@ -88,6 +104,35 @@ app.post('/api/auth/login', async (req, res) => {
         res.status(500).json({ error: 'Login failed' });
     }
 });
+app.get('/api/auth/me', async (req, res) => {
+    try {
+        // Lightweight fallback auth for this assignment:
+        // identify current user using ?userId=... or x-user-id header.
+        const userId = req.query.userId || req.header('x-user-id');
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized: missing userId' });
+        }
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+            },
+        });
+        if (!user)
+            return res.status(404).json({ error: 'User not found' });
+        return res.json({ user });
+    }
+    catch (error) {
+        console.error('Auth me error:', error instanceof Error ? error.message : String(error));
+        return res.status(500).json({ error: 'Failed to fetch current user' });
+    }
+});
+app.post('/api/auth/logout', (_req, res) => {
+    return res.json({ success: true, message: 'Logged out' });
+});
 app.use('/api/tutors', tutorRoutes);
 app.use('/api/tutor', tutorPrivateRoutes);
 app.use('/api/bookings', bookingRoutes);
@@ -120,11 +165,41 @@ app.post('/api/register', async (req, res) => {
         res.status(500).json({ error: 'Registration failed' });
     }
 });
-// Health check
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK' });
+// Root page
+app.get('/', (req, res) => {
+    res.send(`
+    <html>
+      <head><title>Skill Bridge API</title></head>
+      <body>
+        <h1>Skill Bridge Server</h1>
+        <p>The API is running. Use the following endpoints:</p>
+        <ul>
+          <li>POST /api/auth/register</li>
+          <li>POST /api/auth/login</li>
+          <li>GET /api/auth/me</li>
+          <li>POST /api/auth/logout</li>
+          <li>GET /api/tutors</li>
+          <li>GET /api/tutors/categories</li>
+          <li>GET /api/tutors/:id</li>
+          <li>PUT /api/tutor/profile</li>
+          <li>PUT /api/tutor/availability</li>
+          <li>POST /api/bookings</li>
+          <li>GET /api/bookings</li>
+          <li>GET /api/bookings/:id</li>
+          <li>PATCH /api/bookings/:id</li>
+          <li>POST /api/reviews</li>
+          <li>GET /api/admin/users</li>
+          <li>PATCH /api/admin/users/:id</li>
+          <li>GET /api/admin/bookings</li>
+        </ul>
+      </body>
+    </html>
+  `);
 });
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+}
+export default app;
 //# sourceMappingURL=index.js.map
