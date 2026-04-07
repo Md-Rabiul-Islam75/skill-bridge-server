@@ -16,9 +16,10 @@ router.post('/', async (req, res) => {
 
     const slotDate = new Date(date);
 
-    // One tutor slot can only be confirmed once.
-    const existingConfirmed = await prisma.booking.findFirst({
+    // Allow different students to book the same slot, but prevent duplicate booking for the same student.
+    const existingForStudent = await prisma.booking.findFirst({
       where: {
+        studentId,
         tutorId,
         date: slotDate,
         status: {
@@ -28,8 +29,8 @@ router.post('/', async (req, res) => {
       select: { id: true },
     });
 
-    if (existingConfirmed) {
-      return res.status(409).json({ message: 'Already confirmed: this slot is already booked.' });
+    if (existingForStudent) {
+      return res.status(409).json({ message: 'You already booked this slot.' });
     }
 
     const booking = await prisma.booking.create({
