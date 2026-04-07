@@ -10,12 +10,13 @@ router.post('/', async (req, res) => {
         if (!studentId || !tutorId || !date) {
             return res.status(400).json({ error: 'studentId, tutorId, and date are required' });
         }
+        const slotDate = new Date(date);
         // Allow different students to book the same slot, but prevent duplicate booking for the same student.
         const existingForStudent = await prisma.booking.findFirst({
             where: {
                 studentId,
                 tutorId,
-                date: new Date(date),
+                date: slotDate,
                 status: {
                     in: ['CONFIRMED', 'COMPLETED'],
                 },
@@ -29,7 +30,7 @@ router.post('/', async (req, res) => {
             data: {
                 studentId,
                 tutorId,
-                date: new Date(date),
+                date: slotDate,
                 status: 'CONFIRMED', // Explicitly set status
             },
         });

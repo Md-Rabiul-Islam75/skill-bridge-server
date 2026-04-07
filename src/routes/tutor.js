@@ -2,12 +2,53 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 const router = Router();
 const prisma = new PrismaClient();
+// GET /api/tutor/profile - Fetch tutor profile
+router.get('/profile', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        if (!userId) {
+            return res.status(400).json({ error: 'userId query parameter is required' });
+        }
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, name: true, email: true, role: true },
+        });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const tutorProfile = await prisma.tutorProfile.findUnique({
+            where: { userId: userId },
+            include: { categories: true },
+        });
+        // Merge user and tutor profile data
+        const profile = {
+            ...user,
+            ...tutorProfile,
+            subjects: tutorProfile?.categories?.map((c) => c.name).join(', ') || '',
+        };
+        res.json({ profile });
+    }
+    catch (error) {
+        console.error('Fetch profile error:', error instanceof Error ? error.message : String(error));
+        res.status(500).json({ error: 'Failed to fetch profile' });
+    }
+});
 // PUT /api/tutor/profile - Update tutor profile
 router.put('/profile', async (req, res) => {
     try {
-        const { userId, bio, price, categoryIds } = req.body;
+        const { userId, bio, price, categoryIds, name, email, subjects } = req.body;
         if (!userId) {
             return res.status(400).json({ error: 'userId is required' });
+        }
+        // Update User table fields (name, email)
+        if (name || email) {
+            await prisma.user.update({
+                where: { id: userId },
+                data: {
+                    ...(name ? { name } : {}),
+                    ...(email ? { email } : {}),
+                },
+            });
         }
         // First, ensure tutor profile exists
         const tutorProfile = await prisma.tutorProfile.upsert({
@@ -22,18 +63,61 @@ router.put('/profile', async (req, res) => {
                 price: price == null ? null : parseFloat(price),
             },
         });
-        // Update categories if provided
+        // Handle category updates - either from categoryIds or from subjects string
+        let categoriesToSet = [];
         if (categoryIds && Array.isArray(categoryIds)) {
+            categoriesToSet = categoryIds.map((id) => ({ id }));
+        }
+        else if (subjects && typeof subjects === 'string') {
+            // Parse comma-separated subjects, create missing categories, then link all.
+            const rawNames = subjects
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean);
+            const uniqueNames = [];
+            const seen = new Set();
+            for (const name of rawNames) {
+                const key = name.toLowerCase();
+                if (seen.has(key))
+                    continue;
+                seen.add(key);
+                uniqueNames.push(name);
+            }
+            const resolvedCategories = [];
+            for (const subjectName of uniqueNames) {
+                const existing = await prisma.category.findFirst({
+                    where: {
+                        name: {
+                            equals: subjectName,
+                            mode: 'insensitive',
+                        },
+                    },
+                    select: { id: true },
+                });
+                if (existing) {
+                    resolvedCategories.push({ id: existing.id });
+                    continue;
+                }
+                const created = await prisma.category.create({
+                    data: { name: subjectName },
+                    select: { id: true },
+                });
+                resolvedCategories.push({ id: created.id });
+            }
+            categoriesToSet = resolvedCategories;
+        }
+        // Update categories if we have any to set
+        if (categoriesToSet.length > 0 || (subjects === '' && !categoryIds)) {
             await prisma.tutorProfile.update({
                 where: { userId },
                 data: {
                     categories: {
-                        set: categoryIds.map((id) => ({ id })),
+                        set: categoriesToSet,
                     },
                 },
             });
         }
-        // Return updated profile with categories
+        // Return updated profile with categories and user info
         const updatedProfile = await prisma.tutorProfile.findUnique({
             where: { userId },
             include: {
@@ -41,7 +125,12 @@ router.put('/profile', async (req, res) => {
                 user: true,
             },
         });
-        res.json(updatedProfile);
+        // Transform response to include subjects field
+        const response = {
+            ...updatedProfile,
+            subjects: updatedProfile?.categories?.map((c) => c.name).join(', ') || '',
+        };
+        res.json(response);
     }
     catch (error) {
         console.error('Update profile error:', error instanceof Error ? error.message : String(error));
