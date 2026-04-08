@@ -12,6 +12,9 @@ router.get('/', async (req, res) => {
                 categories: true,
             },
             where: {
+                user: {
+                    role: 'TUTOR',
+                },
                 ...(subject && {
                     categories: {
                         some: {
@@ -68,6 +71,9 @@ router.get('/:id', async (req, res) => {
             });
         }
         if (!tutor) {
+            return res.status(404).json({ error: 'Tutor not found' });
+        }
+        if (tutor.user?.role !== 'TUTOR') {
             return res.status(404).json({ error: 'Tutor not found' });
         }
         res.json(tutor);

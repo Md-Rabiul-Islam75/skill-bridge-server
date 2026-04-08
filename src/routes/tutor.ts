@@ -22,6 +22,10 @@ router.get('/profile', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    if (user.role !== 'TUTOR') {
+      return res.status(403).json({ error: 'Only tutors can access tutor profile.' });
+    }
+
     const tutorProfile = await prisma.tutorProfile.findUnique({
       where: { userId: userId as string },
       include: { categories: true },
@@ -48,6 +52,19 @@ router.put('/profile', async (req, res) => {
 
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.role !== 'TUTOR') {
+      return res.status(403).json({ error: 'Only tutors can update tutor profile.' });
     }
 
     // Update User table fields (name, email)
@@ -167,6 +184,19 @@ router.get('/availability', async (req, res) => {
       return res.status(400).json({ error: 'userId query parameter is required' });
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: userId as string },
+      select: { role: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.role !== 'TUTOR') {
+      return res.status(403).json({ error: 'Only tutors can access tutor availability.' });
+    }
+
     const tutorProfile = await prisma.tutorProfile.findUnique({
       where: { userId: userId as string },
       include: { availabilities: true },
@@ -190,6 +220,19 @@ router.put('/availability', async (req, res) => {
 
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.role !== 'TUTOR') {
+      return res.status(403).json({ error: 'Only tutors can update tutor availability.' });
     }
 
     if (!availabilities || !Array.isArray(availabilities)) {

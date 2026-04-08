@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 // POST /api/bookings - Create new booking
 router.post('/', async (req, res) => {
   try {
-    const { tutorId, date, studentId } = req.body; // Add studentId to request body for now
+    const { tutorId, date, studentId, notes } = req.body; // Add studentId to request body for now
 
     // Validate required fields
     if (!studentId || !tutorId || !date) {
@@ -38,6 +38,7 @@ router.post('/', async (req, res) => {
         studentId,
         tutorId,
         date: slotDate,
+        notes: notes == null ? null : String(notes),
         status: 'CONFIRMED', // Explicitly set status
       },
     });

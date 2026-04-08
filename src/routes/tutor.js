@@ -16,6 +16,9 @@ router.get('/profile', async (req, res) => {
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
+        if (user.role !== 'TUTOR') {
+            return res.status(403).json({ error: 'Only tutors can access tutor profile.' });
+        }
         const tutorProfile = await prisma.tutorProfile.findUnique({
             where: { userId: userId },
             include: { categories: true },
@@ -39,6 +42,16 @@ router.put('/profile', async (req, res) => {
         const { userId, bio, price, categoryIds, name, email, subjects } = req.body;
         if (!userId) {
             return res.status(400).json({ error: 'userId is required' });
+        }
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { role: true },
+        });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        if (user.role !== 'TUTOR') {
+            return res.status(403).json({ error: 'Only tutors can update tutor profile.' });
         }
         // Update User table fields (name, email)
         if (name || email) {
@@ -144,6 +157,16 @@ router.get('/availability', async (req, res) => {
         if (!userId) {
             return res.status(400).json({ error: 'userId query parameter is required' });
         }
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { role: true },
+        });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        if (user.role !== 'TUTOR') {
+            return res.status(403).json({ error: 'Only tutors can access tutor availability.' });
+        }
         const tutorProfile = await prisma.tutorProfile.findUnique({
             where: { userId: userId },
             include: { availabilities: true },
@@ -164,6 +187,16 @@ router.put('/availability', async (req, res) => {
         const { userId, availabilities } = req.body;
         if (!userId) {
             return res.status(400).json({ error: 'userId is required' });
+        }
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { role: true },
+        });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        if (user.role !== 'TUTOR') {
+            return res.status(403).json({ error: 'Only tutors can update tutor availability.' });
         }
         if (!availabilities || !Array.isArray(availabilities)) {
             return res.status(400).json({ error: 'availabilities array is required' });

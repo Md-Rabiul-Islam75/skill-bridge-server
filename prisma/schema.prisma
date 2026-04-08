@@ -78,6 +78,7 @@ model Booking {
   tutorId   String
   tutor     User     @relation("TutorBookings", fields: [tutorId], references: [id])
   date      DateTime
+  notes     String?
   status    BookingStatus @default(CONFIRMED)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

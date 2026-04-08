@@ -145,6 +145,35 @@ app.get('/api/auth/me', async (req, res) => {
 app.post('/api/auth/logout', (_req, res) => {
   return res.json({ success: true, message: 'Logged out' });
 });
+
+app.put('/api/auth/profile', async (req, res) => {
+  try {
+    const { userId, name, email } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(name ? { name } : {}),
+        ...(email ? { email } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+      },
+    });
+
+    return res.json({ profile: updated });
+  } catch (error) {
+    console.error('Auth profile update error:', error instanceof Error ? error.message : String(error));
+    return res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
 app.use('/api/tutors', tutorRoutes);
 app.use('/api/tutor', tutorPrivateRoutes);
 app.use('/api/bookings', bookingRoutes);
